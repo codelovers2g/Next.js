@@ -1,106 +1,132 @@
-/**
- * Latest Version Used: Next.js 16.2.4 / React 19.2.0
- * File Purpose: Dashboard Entry Point with Async Request APIs and 'use cache'
- */
-
 import React, { Suspense } from 'react';
-import Form from 'next/form'; // Optimized Next.js 15+ form navigation
-import ItemList from '../components/dashboard/ItemList';
+import Form from 'next/form'; 
+import TaskList from '../components/dashboard/TaskList';
 import AddTaskForm from '../components/dashboard/AddTaskForm';
-import { mockItems } from '../lib/schema';
+import FormattedTime from '../components/ui/FormattedTime';
+import { mockTasks } from '../lib/data';
+import { Search } from 'lucide-react';
 
 /**
- * Next.js 16 introduces stable 'use cache' for granular, composable caching
- * that can be applied to functions, server components, or entire packages.
- * Additionally, searchParams and params are now Promises to support 
- * improved partial rendering and streaming architectures.
+ * The 'use cache' directive enables granular server-side caching, 
+ * optimizing performance for data-heavy operations.
  */
-async function getDashboardData(searchParams: Promise<{ query?: string }>) {
-  'use cache'; // Declarative caching for this specific data fetching unit
+async function getDashboardData(query?: string) {
+  'use cache';
   
-  const { query } = await searchParams; // Asynchronous access (Next.js 15+)
-  
-  // High-performance filtering logic
-  const items = query 
-    ? mockItems.filter(item => item.title.toLowerCase().includes(query.toLowerCase()))
-    : mockItems;
+  const tasks = query 
+    ? mockTasks.filter(p => p.title.toLowerCase().includes(query.toLowerCase()))
+    : mockTasks;
 
   return {
-    items,
+    tasks,
     metadata: {
-      total: items.length,
+      total: tasks.length,
+      active: tasks.filter(p => p.status === 'pending').length,
       timestamp: new Date().toISOString()
     }
   };
 }
 
+/**
+ * In Next.js 15+, searchParams is a Promise that must be awaited to access 
+ * URL parameters in Server Components.
+ */
 export default async function DashboardPage({ 
   searchParams 
 }: { 
   searchParams: Promise<{ query?: string }> 
 }) {
-  // Fetch data using the cached async pattern
-  const { items, metadata } = await getDashboardData(searchParams);
+  const { query } = await searchParams;
+  const { tasks, metadata } = await getDashboardData(query);
 
   return (
-    <main className="p-10 max-w-6xl mx-auto space-y-12">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
-        <div>
-          <h1 className="text-5xl font-black tracking-tight text-slate-900">
-            Nexus <span className="text-blue-600">OS</span>
-          </h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-xs mt-3">
-            Core Management System / v16.2.4
+    <main className="p-8 md:p-12 max-w-[1600px] mx-auto space-y-12">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-slate-900 to-blue-600" />
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-slate-900">
+              TaskFlow
+            </h1>
+          </div>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.4em] text-[10px] mt-4">
+            Task Orchestrator / Build 16.2.4.9
           </p>
         </div>
-        <div className="flex gap-4 items-center">
-          <div className="text-right">
-            <p className="text-[10px] font-bold text-slate-300 uppercase">Latency Status</p>
-            <p className="text-sm font-bold text-green-500">Nominal (Cached)</p>
+        
+        <div className="flex gap-6 items-center">
+          <div className="hidden md:block text-right space-y-1">
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">TaskFlow</p>
+            <div className="flex items-center gap-2 justify-end">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <p className="text-sm font-bold text-slate-800">Operational</p>
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white font-black">
-            AI
+          <div className="w-16 h-16 rounded-3xl bg-slate-900 flex items-center justify-center text-white text-xl font-black shadow-2xl shadow-blue-900/20">
+            TF
           </div>
         </div>
       </header>
 
-      <section className="grid lg:grid-cols-12 gap-10">
-        <div className="lg:col-span-8 space-y-8">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-3xl font-black text-slate-800 tracking-tighter">Active Protocols</h2>
-            <Form action="/" className="flex gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+        <section className="lg:col-span-8 space-y-10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-4">
+            <div>
+              <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Tasks</h2>
+              <p className="text-xs font-medium text-slate-400 mt-1">Status</p>
+            </div>
+            <Form action="/" className="relative">
               <input 
                 name="query" 
-                placeholder="Filter protocols..." 
-                className="px-5 py-2 rounded-xl bg-white border border-slate-200 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all w-48 text-sm"
+                defaultValue={query}
+                placeholder="Search tasks..." 
+                className="pl-12 pr-6 py-3 rounded-2xl bg-white border border-slate-200 focus:ring-8 focus:ring-blue-500/5 focus:border-blue-500 outline-none transition-all w-full md:w-64 text-sm font-medium"
               />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} strokeWidth={2.5} />
             </Form>
           </div>
           
-          <Suspense fallback={<div className="h-64 bg-slate-100 animate-pulse rounded-[2rem]" />}>
-            <ItemList initialItems={items} />
+          {/* Suspense boundaries allow for progressive rendering, improving perceived performance. */}
+          <Suspense fallback={<div className="h-96 bg-slate-100 animate-pulse rounded-[3rem]" />}>
+            <TaskList initialTasks={tasks} />
           </Suspense>
-        </div>
+        </section>
 
-        <aside className="lg:col-span-4 space-y-8">
-          <div className="bg-slate-900 p-8 rounded-[2rem] text-white shadow-2xl shadow-blue-900/10">
-            <h2 className="text-2xl font-black mb-6 tracking-tight">Initialize Subroutine</h2>
-            <AddTaskForm />
+        <aside className="lg:col-span-4 space-y-10">
+
+          <div className="bg-slate-900 p-10 rounded-[3rem] text-white shadow-2xl shadow-blue-900/20 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 blur-3xl -mr-16 -mt-16 group-hover:bg-blue-600/40 transition-colors" />
+            <div className="relative z-10 space-y-8">
+              <div>
+                <h2 className="text-2xl font-black tracking-tight">Add Task</h2>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Manual Override</p>
+              </div>
+              <AddTaskForm />
+            </div>
           </div>
 
-          <div className="bg-white p-8 rounded-[2rem] border border-slate-100 space-y-4">
-            <h3 className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">System Telemetry</h3>
-            <div className="flex justify-between items-center text-sm font-bold text-slate-700">
-              <span>Total Active Tasks</span>
-              <span className="text-blue-600">{metadata.total}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm font-bold text-slate-700">
-              <span>Last Sync</span>
-              <span className="text-slate-400 font-mono text-[10px]">{metadata.timestamp}</span>
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 space-y-6 shadow-sm">
+            <h3 className="font-black text-slate-400 uppercase tracking-[0.2em] text-[10px]">Stats</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-bold text-slate-500">Total Tasks</span>
+                <span className="text-slate-900 font-black font-mono">{metadata.total}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-bold text-slate-500">Active Tasks</span>
+                <span className="text-blue-600 font-black font-mono">{metadata.active}</span>
+              </div>
+              <div className="h-px bg-slate-100 my-2" />
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-bold text-slate-500">Last Update</span>
+                <span className="text-slate-400 text-[10px]">
+                  <FormattedTime date={metadata.timestamp} />
+                </span>
+              </div>
             </div>
           </div>
         </aside>
-      </section>
+      </div>
     </main>
   );
 }
